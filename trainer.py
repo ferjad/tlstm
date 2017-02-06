@@ -9,6 +9,7 @@ import utils
 from utils import decode_sparse_tensor
 import codecs
 # Configs
+num_epochs=common.num_epochs
 print("num_hidden:", common.num_hidden, "num_layers:", common.num_layers)
 
 def report_accuracy(decoded_list, test_targets,test_names):
