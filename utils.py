@@ -1,82 +1,107 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-import time
-from six.moves.urllib.request import urlretrieve
 import os
-import sys
+import cv2
+import codecs
 import numpy as np
 import common
 
-last_percent_reported = None
+DIGITS = "~!%'()+,-.\/0123456789:ABCDEFGIJKLMNOPRSTUVWYabcdefghiklmnoprstuvwxz-V،د‘“ ؤب,گ0ذصط3وLِbT2dh9ٰٴxAڈlژ؛؟أGاpث4/س7ًtCهKیُS\"۔WOcgk…ٓosw(ﷺجڑ.آئکتخز6غEشہقنضDNR8ظ:fnrvzپچB’”لء%)ْFحر5عںھف!JمIM#ّےUYَae'Pimة1uٹ+"
 
-def sparse_tuple_from(sequences, dtype=np.int32):
-    """Create a sparse representention of x.
-    Args:
-        sequences: a list of lists of type dtype where each element is a sequence
-    Returns:
-        A tuple with (indices, values, shape)
-    """
-    indices = []
-    values = []
-    
-    
-    for n, seq in enumerate(sequences):
-        
-        indices.extend(zip([n] * len(seq), xrange(len(seq))))
-        values.extend(seq)
-        
+#Hyper parameters
+window_height=48
+num_classes=len(DIGITS)+1 #Number of classes plus blank class for ctc
+learning_rate_decay_factor=0.9
+momentum=0.9
+initial_learning_rate=1e-4
+decay_steps=5000
 
-    indices = np.asarray(indices, dtype=np.int64)
-    values = np.asarray(values, dtype=dtype)
-    shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
-    return indices, values, shape
+batch_size=100
+test_batch_size=100
+batches=100
+train_size=batch_size*batches
 
+num_epochs=100
+num_hidden=256
+num_layer=1
 
-# load the training or test dataset from disk
-def get_data_set(dirname, start_index=None, end_index=None):
-    fnames, inputs, codes = common.unzip(list(common.read_data_for_lstm_ctc(dirname, start_index, end_index)))
-    inputs = inputs.swapaxes(1, 2)
-   
-    
-    targets = [np.asarray(i) for i in codes]
-    
-    sparse_targets = sparse_tuple_from(targets)
-    
-    seq_len = np.ones(inputs.shape[0]) * common.OUTPUT_SHAPE[1]
-    
-    return fnames, inputs, sparse_targets, seq_len
+def getlist(path):
+    images=open(path,'r').readlines()
+    imagelist=list()
+    gtlist=list()
+    for a in images:
+        a=a.strip('\n')
+        b=os.path.splitext(a)[0]+'.gt.txt'
+        imagelist.append(a)
+        gtlist.append(b)
+    return imagelist,gtlist
 
+def readimages(imagelist):
+    maxlength=0
+    images={}
+    seqlength={}
+    for a in imagelist:
+        image=cv2.imread(a,0)
+        a=os.path.splitext(a)[0]
+        h,w=image.shape
+        w=int(w*(windowheight/(h*1.)))
+        image=cv2.resize(image,(w,windowheight))
+        h,w=image.shape
+        if(w>maxlength):
+            maxlength=w
+        images[a]=image
+    for key in images:
+        image=images[key]
+        h,w=image.shape
+        seqlength[key]=w
+        border=maxlength-w
+        image=cv2.copyMakeBorder(image, 0, 0, 0, border, borderType= cv2.BORDER_CONSTANT, value=[255] )
+        images[key]=image
+    return images,seqlength
+
+def readgt(gtlist):
+    indices=[]
+    values=[]
+    groundtruth={}
+    maxsent=0
+    for ind,current_gt in enumerate(gtlist):
+        gt=codecs.open(current_gt,'r','utf-8').readline()
+        print(gt)
+        if(len(gt)>maxsent):
+            maxsent=len(gt)
+        current_gt=os.path.splitext(os.path.splitext(current_gt)[0])[0]
+        groundtruth[current_gt]=gt
+        for idx,curr_char in enumerate(list(gt)):
+            values.append(common.DIGITS.find(curr_char))
+            indices.append([ind,idx])
+    indices=np.array(indices)
+    values=np.array(values)
+    dense_shape=[len(gtlist),maxsent]
+    return (indices,values,dense_shape)
 
 def decode_a_seq(indexes, spars_tensor):
     decoded = []
     for m in indexes:
         str = common.DIGITS[spars_tensor[1][m]]
         decoded.append(str)
-  
     return decoded
 
 
 def decode_sparse_tensor(sparse_tensor):
-   
     decoded_indexes = list()
     current_i = 0
     current_seq = []
-    for offset, i_and_index in enumerate(sparse_tensor[0]):
-        
+
+    for idx, i_and_index in enumerate(sparse_tensor[0]):
         i = i_and_index[0]
         if i != current_i:
-            
             decoded_indexes.append(current_seq)
             current_i = i
             current_seq = list()
-        current_seq.append(offset) 
-        
+        current_seq.append(idx)
+
     decoded_indexes.append(current_seq)
-    print("decoded_indexes = ", decoded_indexes)
     result = []
+
     for index in decoded_indexes:
-        
         result.append(decode_a_seq(index, sparse_tensor))
-    
+
     return result
