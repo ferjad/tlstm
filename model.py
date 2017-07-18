@@ -3,7 +3,7 @@ import tensorflow as tf
 
 def get_train_model():
 
-    input=tf.placeholder(tf.float32,[None,None,utils.window_height])
+    inputs=tf.placeholder(tf.float32,[None,None,utils.window_height])
     #Sparse Tensor placeholder for ctc
     targets=tf.sparse_placeholder(tf.int32)
 
@@ -23,12 +23,12 @@ def get_train_model():
     #Initializing Weights with random distribition
     weights=tf.Variable(tf.truncated_normal([2*utils.num_hidden,utils.num_classes],stddev=0.1,name="W"))
     #Initializing biases with zeroes
-    b=tf.zeroes(shape=[utils.num_classes],name="b")
+    b=tf.zeros(shape=[utils.num_classes],name="b")
     #Reshaping to obtain single pixel windows to apply weights over
     outputs=tf.reshape(outputs,[-1,2*utils.num_hidden])
 
     #Applying weights and biases to the input sequence
-    logits=tf.matmul(outputs,W)+b
+    logits=tf.matmul(outputs,weights)+b
 
     #Reshaping back to the original shape
     logits=tf.reshape(logits,[batch_s,-1,utils.num_classes])

@@ -2,7 +2,6 @@ import os
 import cv2
 import codecs
 import numpy as np
-import common
 
 DIGITS = "~!%'()+,-.\/0123456789:ABCDEFGIJKLMNOPRSTUVWYabcdefghiklmnoprstuvwxz-V،د‘“ ؤب,گ0ذصط3وLِbT2dh9ٰٴxAڈlژ؛؟أGاpث4/س7ًtCهKیُS\"۔WOcgk…ٓosw(ﷺجڑ.آئکتخز6غEشہقنضDNR8ظ:fnrvzپچB’”لء%)ْFحر5عںھف!JمIM#ّےUYَae'Pimة1uٹ+"
 
@@ -27,12 +26,15 @@ def getlist(path):
     images=open(path,'r').readlines()
     imagelist=list()
     gtlist=list()
+    keys=list()
     for a in images:
         a=a.strip('\n')
-        b=os.path.splitext(a)[0]+'.gt.txt'
+        b=os.path.splitext(os.path.splitext(a)[0])[0]
+        keys.append(b)
+        b=b+'.gt.txt'
         imagelist.append(a)
         gtlist.append(b)
-    return imagelist,gtlist
+    return imagelist,gtlist,keys
 
 def readimages(imagelist):
     maxlength=0
@@ -42,8 +44,8 @@ def readimages(imagelist):
         image=cv2.imread(a,0)
         a=os.path.splitext(a)[0]
         h,w=image.shape
-        w=int(w*(windowheight/(h*1.)))
-        image=cv2.resize(image,(w,windowheight))
+        w=int(w*(window_height/(h*1.)))
+        image=cv2.resize(image,(w,window_height))
         h,w=image.shape
         if(w>maxlength):
             maxlength=w
@@ -70,7 +72,7 @@ def readgt(gtlist):
         current_gt=os.path.splitext(os.path.splitext(current_gt)[0])[0]
         groundtruth[current_gt]=gt
         for idx,curr_char in enumerate(list(gt)):
-            values.append(common.DIGITS.find(curr_char))
+            values.append(DIGITS.find(curr_char))
             indices.append([ind,idx])
     indices=np.array(indices)
     values=np.array(values)
