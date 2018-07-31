@@ -33,28 +33,25 @@ def get_train_model():
 
     # The second output previous state and is ignored
     outputs, _ = tf.nn.bidirectional_dynamic_rnn(forwardH1,backwardH1,inputs,seq_len,dtype=tf.float32)
-    outputs_fw,outputs_bw = outputs
+    outputs=tf.concat(outputs,2)
 
     shape = tf.shape(inputs)
     batch_s, max_timesteps = shape[0], shape[1]
 
     # Reshaping to apply the same weights over the timesteps
-    outputs_fw = tf.reshape(outputs_fw, [-1, common.num_hidden])
-    outputs_bw = tf.reshape(outputs_bw, [-1, common.num_hidden])
-
+    outputs = tf.reshape(outputs, [-1, common.num_hidden])
 
     # Truncated normal with mean 0 and stdev=0.1
-    Wforward = tf.Variable(tf.truncated_normal([common.num_hidden,
+    
+    Weights= tf.Variable(tf.truncated_normal([2*common.num_hidden,
                                          common.num_classes],
                                         stddev=0.1), name="Wforward")
-    Wbackward=tf.Variable(tf.truncated_normal([common.num_hidden,
-                                         common.num_classes],
-                                        stddev=0.1), name="Wbackward")
+    
     # Zero initialization
     b = tf.zeros(shape=[common.num_classes],name='b')
 
     # Doing the affine projection
-    logits = tf.matmul(outputs_fw, Wforward)+ tf.matmul(outputs_bw,Wbackward) + b
+    logits = tf.matmul(outputs, Weights) + b
 
     # Reshaping back to the original shape
     logits = tf.reshape(logits, [batch_s, -1, common.num_classes])
